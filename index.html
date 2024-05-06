@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Mapa de l'atur a Catalunya, carrer a carrer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://api.tiles.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js"></script>
+  <link href="https://api.tiles.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css" rel="stylesheet" />
+  <script id="search-js" defer="" src="https://api.mapbox.com/search-js/v1.0.0-beta.20/web.js"></script>
+
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+    }
+
+    h2,
+    h3 {
+      margin: 10px;
+      font-size: 18px;
+    }
+    h4 {
+      margin: 10px;
+      font-size: 18px;
+    }
+
+    h3 {
+      font-size: 16px;
+    }
+    h4 {
+      font-size: 14px;
+    }
+
+    p {
+      margin: 10px;
+    }
+
+    .map-overlay {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      right: 25px; /* Ajuste para mover a la izquierda */
+      background: #fff;
+      margin-right: 20px;
+      font-family: 'Segoe UI', sans-serif;
+      overflow: auto;
+      border-radius: 3px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Agregar sombra */
+    }
+
+    #map {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 100%;
+    }
+
+    #features {
+      top: 0;
+      max-height: 250px; /* Altura máxima inicial reducida */
+      overflow-y: auto; /* Agregar scroll vertical si es necesario */
+      margin-top: 55px;
+      width: 300px;
+      transition: max-height 0.5s; /* Transición suave para la altura */
+    }
+
+    #legend {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 1; /* Asegura que la leyenda esté encima del mapa */
+      background-color: #fff;
+      padding: 10px;
+      border-radius: 5px;
+      font-family: 'Segoe UI', sans-serif;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      max-width: 300px; /* Limita el ancho máximo de la leyenda */
+      max-height: 180px;
+    }
+
+    .legend-bar {
+      width: 100%;
+      height: 20px;
+      background: linear-gradient(to right, #efbfbf, #d04040, #c00000, #900000, #600000);
+      border-radius: 5px;
+      position: relative;
+    }
+
+    .legend-bar::before {
+      content: '';
+      position: absolute;
+      top: -5px;
+      height: 30px;
+      background-color: black;
+      width: 2px;
+    }
+
+    .legend-labels {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 5px;
+    }
+
+    .legend-labels div {
+      flex: 1;
+      text-align: center;
+      font-size: 12px;
+      position: relative;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <div class="map-overlay" id="features">
+    <h2>
+      Mapa de l'atur a Catalunya, carrer a carrer
+      <hr>
+    </h2>
+    <div id="pd">
+      <p>Fes clic al mapa o empra el cercador per buscar una direcció i conèixer el percentatge d'atur de la zona </p>
+      <hr>
+      <p>Mapa elaborat per <b>Arnau Inés</b> (<a href="https://twitter.com/Suarsen">@Suarsen</a>) amb les dades del Cens de Vivenda 2021 de l'INE</p>
+    </div>
+  </div>
+  <div class="map-overlay" id="legend">
+    <h3>Percentatge d'atur respecte a la població activa (%)</h3>
+    <div class="legend-bar"></div>
+    <div class="legend-labels">
+      <div>
+        <span style="background-color: #efbfbf;"></span> 
+        0,00%
+        <div class="legend-line"></div>
+      </div>
+      <div>
+        <span style="background-color: #d04040;"></span> 
+        16,27%
+        <div class="legend-line"></div>
+      </div>
+      <div>
+        <span style="background-color: #c00000;"></span> 
+        32,55%
+        <div class="legend-line"></div>
+      </div>
+      <div>
+        <span style="background-color: #900000;"></span> 
+        48,82%
+        <div class="legend-line"></div>
+      </div>
+      <div>
+        <span style="background-color: #600000;"></span> 
+        65,1%
+        <div class="legend-line"></div>
+      </div>
+    </div>
+    <p style="font-size: 12px";>*Els municipis i/o seccions censals de color <b>negre</b> no inclouen les dades per secret estadístic</p> <!-- La nueva línea añadida -->
+  </div>
+  
+
+  <script>
+    // Define el access token
+    mapboxgl.accessToken = 'pk.eyJ1IjoiYXJuYXVpbmVzIiwiYSI6ImNsdnFjY3hiMjBkbDQybG1oaDl1MmZxN3IifQ.w9MXQRTssGGK-k7y6OZQSQ'
+    // Crea el mapa
+    const map = new mapboxgl.Map({
+      container: 'map', // ID del contenedor
+      style: 'mapbox://styles/arnauines/clvtdffrb01wj01qzg3tc8twf' // URL del estilo de Mapbox Studio
+    });
+
+    const searchJS = document.getElementById('search-js');
+    searchJS.onload = function () {
+      const searchBox = new MapboxSearchBox();
+      searchBox.accessToken = 'pk.eyJ1IjoiYXJuYXVpbmVzIiwiYSI6ImNsdnFjY3hiMjBkbDQybG1oaDl1MmZxN3IifQ.w9MXQRTssGGK-k7y6OZQSQ';
+      searchBox.options = {
+        types: 'address,poi',
+        proximity: [-73.99209, 40.68933],
+        placeholder: 'Cerca qualsevol adreça' // Cambia el texto de marcador de posición aquí
+      };
+      searchBox.marker = true;
+      searchBox.mapboxgl = mapboxgl;
+      map.addControl(searchBox);
+    };
+
+    // Espera a que se cargue el mapa antes de ajustarlo
+    map.on('load', () => {
+      // Cambia el cursor al de un puntero
+      map.getCanvas().style.cursor = 'default';
+
+      // Agrega los botones de zoom
+      map.addControl(new mapboxgl.NavigationControl());
+
+      // Cambia la ventana de información al pasar el mouse
+      map.on('click', (event) => {
+        const features = map.queryRenderedFeatures(event.point);
+        const isPopupOpen = document.getElementById('pd').contains(event.originalEvent.target);
+        if (!isPopupOpen) {
+          const states = map.queryRenderedFeatures(event.point, {
+            layers: ['percentatgeaturatspersecccensal']
+          });
+          if (states.length) {
+            // Formatear los valores numéricos
+            const percentAtur = states[0].properties.PercentatgePoblacioAturadaRespecteActiva.toLocaleString('es-ES', { minimumFractionDigits: 2 });
+            const percentPoblacio = states[0].properties.PercentatgePoblacioEntre16i64anys.toLocaleString('es-ES', { minimumFractionDigits: 2 });
+
+            const popupContent = `
+              <h2>${states[0].properties.NOMMUN} (${states[0].properties.NOMCOMARCA})</h2> 
+              <h3> Districte: ${states[0].properties.DISTRICTE} | Secció: ${states[0].properties.SECCIO} </h3>
+              <h4> ${states[0].properties.TotalPersones} habitants entre 16 i 64 anys </h4> <hr>
+              <p> <b>${percentAtur}% </b> d'aturats d'entre el ${percentPoblacio}% d'habitants amb edats compreses entre els 16 i els 64 anys i actius laboralment </p>
+            `;
+            // Inserta el contenido en el div de la ventana de información
+            document.getElementById('pd').innerHTML = popupContent;
+
+            // Ajusta el tamaño de la ventana de información
+            const popupHeight = document.getElementById('pd').scrollHeight;
+            document.getElementById('features').style.maxHeight = `${popupHeight + 90}px`; // Aumenta la altura en 75px para dar un margen
+
+            // Remover la línea vertical anterior (si existe)
+            const existingVerticalLine = document.querySelector('.vertical-line');
+            if (existingVerticalLine) {
+              existingVerticalLine.remove();
+            }
+
+            // Obtener el color de la capa clicada
+            const color = states[0].layer.paint['fill-color'];
+            // Ajustar la posición de la línea vertical en la leyenda
+            const legendBar = document.querySelector('.legend-bar');
+            legendBar.style.position = 'relative';
+            const legendLabels = document.querySelector('.legend-labels');
+            const verticalLine = document.createElement('div');
+            verticalLine.className = 'vertical-line';
+            verticalLine.style.position = 'absolute';
+            verticalLine.style.top = '-5px';
+            verticalLine.style.left = getColorPosition(color) + '%';
+            verticalLine.style.height = '30px';
+            verticalLine.style.width = '2px';
+            verticalLine.style.backgroundColor = 'black';
+            legendBar.appendChild(verticalLine);
+
+            function getColorPosition(color) {
+              switch(color) {
+                case '#efbfbf':
+                  return '0';
+                case '#d04040':
+                  return '20';
+                case '#c00000':
+                  return '40';
+                case '#900000':
+                  return '60';
+                case '#600000':
+                  return '80';
+                default:
+                  return '0';
+              }
+            }
+          } else {
+            const popupContent = `<p>Fes clic al mapa o empra el cercador per buscar una direcció i conèixer el percentatge d'atur de la zona </p> <hr> <p>Mapa elaborat per <b>Arnau Inés</b> (<a href="https://twitter.com/Suarsen">@Suarsen</a>) amb les dades del Cens de Vivenda 2021 de l'INE</p>`;
+            // Inserta el contenido en el div de la ventana de información
+            document.getElementById('pd').innerHTML = popupContent;
+
+            // Restaura la altura máxima inicial
+            document.getElementById('features').style.maxHeight = '250px'; // Reducir la altura máxima inicial
+          }
+        }
+      });
+    });
+
+  </script>
+</body>
+</html>
